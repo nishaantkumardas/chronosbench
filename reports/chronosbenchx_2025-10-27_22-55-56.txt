@@ -1,0 +1,60 @@
+ChronosBench X v1.1.1 Report
+{
+  "meta": {
+    "platform": "Darwin",
+    "timestamp": "2025-10-28T05:55:56Z"
+  },
+  "results": {
+    "cpu": {
+      "cpu_ops": 0,
+      "breakdown": {
+        "matrix": 698,
+        "fft": 365,
+        "prime": 633124
+      },
+      "processes_used": 10
+    },
+    "io": {
+      "read_mb_s": 0.0,
+      "write_mb_s": 0.0,
+      "duration_s": 1.0
+    },
+    "mixed": {
+      "cpu": {
+        "cpu_ops": 0,
+        "breakdown": {},
+        "processes_used": 10
+      },
+      "io": {
+        "read_mb_s": 0.0,
+        "write_mb_s": 0.0,
+        "duration_s": 1.0
+      },
+      "gpu": {
+        "note": "not run"
+      }
+    },
+    "telemetry": {
+      "cpu_percent": 99.2,
+      "cpu_temp": null,
+      "cpu_freq": 4,
+      "cpu_power_w": null,
+      "gpu_percent": null,
+      "gpu_temp": null,
+      "gpu_power_w": null,
+      "mem_total_gb": 16.0,
+      "mem_used_gb": 7.717315673828125,
+      "io_read_mb_s": 0.0,
+      "io_write_mb_s": 0.0
+    }
+  },
+  "scores": {
+    "scores": {
+      "cpu": 1000,
+      "gpu": 0,
+      "io": 0,
+      "thermal": 1000
+    },
+    "composite": 500
+  }
+}

@@ -1,0 +1,67 @@
+ChronosBench X v1.1.1 Report
+{
+  "meta": {
+    "platform": "Darwin",
+    "timestamp": "2025-10-28T05:51:25Z"
+  },
+  "results": {
+    "cpu": {
+      "cpu_ops": 0,
+      "breakdown": {
+        "matrix": 1084,
+        "fft": 559,
+        "prime": 880787
+      },
+      "processes_used": 10
+    },
+    "io": {
+      "read_mb_s": 1476.3167401453231,
+      "write_mb_s": 1476.3167401453231,
+      "duration_s": 15.259598016738892
+    },
+    "mixed": {
+      "cpu": {
+        "cpu_ops": 0,
+        "breakdown": {
+          "matrix": 235,
+          "fft": 136,
+          "prime": 413601
+        },
+        "processes_used": 10
+      },
+      "io": {
+        "read_mb_s": 1111.051116561996,
+        "write_mb_s": 1111.051116561996,
+        "duration_s": 15.668045997619629
+      },
+      "gpu": {
+        "passes": 1328,
+        "duration_s": 15.0,
+        "current_test": "Particle Simulation (device)",
+        "backend": "mps"
+      }
+    },
+    "telemetry": {
+      "time": "2025-10-28T05:51:24.818425Z",
+      "cpu_percent": 92,
+      "cpu_temp": null,
+      "cpu_freq": 4,
+      "mem_used_gb": 7.92938232421875,
+      "mem_total_gb": 16.0,
+      "gpu_percent": null,
+      "gpu_temp": null,
+      "gpu_power_w": null,
+      "io_read_mb_s": 0.02968723669881697,
+      "io_write_mb_s": 974.6282699175737
+    }
+  },
+  "scores": {
+    "scores": {
+      "cpu": 1000,
+      "gpu": 1000,
+      "io": 1000,
+      "thermal": 1000
+    },
+    "composite": 1000
+  }
+}

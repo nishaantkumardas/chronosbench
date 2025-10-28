@@ -1,0 +1,8 @@
+psutil
+rich
+numpy
+numba
+GPUtil
+torch; platform_system=="Darwin"
+onnxruntime
+pyobjc-framework-Metal; platform_system=="Darwin"
