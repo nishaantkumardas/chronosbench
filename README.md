@@ -1,4 +1,4 @@
-# ChronosBench X v1.1.1 — CLI + Metal
+# ChronosBench X v1.0 — CLI + Metal
 
 This package is a demanding CLI benchmark that:
 - uses PyTorch MPS on macOS where available to exercise Metal,
