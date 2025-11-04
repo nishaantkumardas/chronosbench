@@ -23,7 +23,7 @@ def run_metal_particle(duration=30):
     start = time.time()
     passes = 0
     current = 'init'
-    if not metal_available or torch is None
+    if not metal_available or torch is None:
         # fallback: heavy numpy work
         while time.time() - start < duration:
             current = 'Matrix Multiply (numpy)'
