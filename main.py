@@ -4,7 +4,7 @@ Interactive prompts for platform, telemetry level, and intensity.
 Shows live rich UI with current subtest names and telemetry.
 """
 import platform, time, json, sys
-from rich import prin
+from rich import print
 from rich.panel import Panel
 from rich.prompt import Prompt
 from rich.live import Live
