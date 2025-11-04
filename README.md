@@ -16,3 +16,4 @@ Install dependencies:
 Notes:
 - MPS (PyTorch) is used for Metal compute where available. If not installed, GPU test falls back.
 - This tool intentionally stresses hardware.
+....
