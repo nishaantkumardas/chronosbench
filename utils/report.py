@@ -7,6 +7,6 @@ def save_report(report):
     with open(fname,'w',encoding='utf-8') as f:
         json.dump(report, f, indent=2)
     with open(fname.replace('.json','.txt'),'w',encoding='utf-8') as f:
-        f.write('ChronosBench X v1.1.1 Report\n'
+        f.write('ChronosBench X v1.1.1 Report\n')
         f.write(json.dumps(report, indent=2))
     print(f'Report saved to {fname}')
