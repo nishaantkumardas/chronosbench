@@ -10,7 +10,7 @@ from rich.prompt import Prompt
 from rich.live import Live
 from rich.table import Table
 from rich.console import Group
-from rich.layout import Layou
+from rich.layout import Layout
 
 from core.telemetry import TelemetryThread
 from core.cpu_stress import CPUStress
