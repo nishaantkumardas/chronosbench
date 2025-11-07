@@ -4,7 +4,7 @@ def score_report(report):
     results = report.get("results", {})
     scores = {}
 
-    # CPU scor
+    # CPU score
     if "cpu" in results:
         cpu = results["cpu"]
         mat_score = 1.0 / max(cpu.get("matmul_duration_s", 1e-3), 1e-3)
