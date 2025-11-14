@@ -3,7 +3,7 @@
 import tempfile, os, time, threading, shutil
 
 class IOStress:
-    def __init__(self)
+    def __init__(self):
         self._stop = False
         self._thread = None
         self._metrics = {'write_bytes':0,'read_bytes':0,'duration_s':0}
