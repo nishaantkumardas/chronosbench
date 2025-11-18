@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""ChronosBench X v1.1.1 - CLI Rich + Metal
+"""ChronosBench X v1.1.1 - CLI Rich + Meta
 Interactive prompts for platform, telemetry level, and intensity.
 Shows live rich UI with current subtest names and telemetry.
 """
