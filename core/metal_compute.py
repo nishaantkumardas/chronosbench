@@ -7,7 +7,7 @@ try:
     import time, torch, numpy as np
     if hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
         device = torch.device('mps')
-        metal_available = Tru
+        metal_available = True
     elif torch.cuda.is_available():
         device = torch.device('cuda')
         metal_available = True
