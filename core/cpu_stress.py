@@ -5,7 +5,7 @@ import multiprocessing as mp, time, numpy as np, math
 from multiprocessing import Pipe
 
 def _matrix_worker(duration, conn):
-    end = time.time() + duration
+    end = time.time() + duratio
     ops = 0
     try:
         size = 2048
