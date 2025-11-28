@@ -1,7 +1,7 @@
 """Mixed load: concurrently stress CPU + GPU (MPS/Metal if available) + I/O.
 """
 import threading, time
-from core import cpu_stress, io_stress
+from core import cpu_stress, io_stres
 try:
     from core.metal_compute import run_metal_particle, get_last_metal_result, metal_available
 except Exception:
