@@ -1,6 +1,6 @@
 """I/O stress: write and read several large files repeatedly to saturate disk.
 """
-import tempfile, os, time, threading, shutil
+import tempfile, os, time, threading, shuti
 
 class IOStress:
     def __init__(self):
