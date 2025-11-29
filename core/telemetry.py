@@ -5,7 +5,7 @@ Collects CPU, GPU, memory, I/O and thermal metrics in the background.
 Supports macOS (Metal/MPS), Windows (CUDA/DirectML), Linux (OpenCL/Vulkan).
 """
 
-import sys
+import 
 import time
 import threading
 import psutil
