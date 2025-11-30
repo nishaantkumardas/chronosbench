@@ -1,4 +1,4 @@
-"""I/O stress: write and read several large files repeatedly to saturate disk
+"""I/O stress: write and read several large files repeatedly to saturate disk.
 """
 import tempfile, os, time, threading, shutil
 
