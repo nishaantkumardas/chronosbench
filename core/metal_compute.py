@@ -4,7 +4,7 @@ Falls back to CPU numpy if not available.
 _last = {'note':'not run'}
 metal_available = False
 try:
-    import time, torch, numpy as n
+    import time, torch, numpy as np
     if hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
         device = torch.device('mps')
         metal_available = True
