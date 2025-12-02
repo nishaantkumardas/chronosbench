@@ -1,18 +1,12 @@
-# ChronosBench v1.0 — CLI + Metal
+ChronosBench v1.0
 
-This package is a demanding CLI benchmark that:
-- uses PyTorch MPS on macOS where available to exercise Metal,
-- collects telemetry
-- displays a live CLI UI showing current test, CPU/GPU, RAM usage %, IO throughput,
-- cycles CPU subtests (Matrix Multiply, FFT, Prime Search) and a Mixed GPU particle+matrix workload,
-- caps scores to 2000 and writes JSON/text reports into `reports/`.
+A Saturday-afternoon CLI that hammers your CPU and (if you’re on a newer Mac) the Metal GPU too.
+Live bars in the terminal show how busy the chips are while it crunches matrices, FFTs, and a bunch of fake particles.
+When it’s done you get a tiny JSON report in reports/—mostly so you can prove to your future self that this laptop used to be fast.
 
-Run (macOS, full telemetry):
-  python3 main.py
+Run:
 
-Install dependencies:
-  pip3 install -r requirements.txt
+pip3 install -r requirements.txt
+python3 main.py
 
-Notes:
-- MPS (PyTorch) is used for Metal compute where available. If not installed, GPU test falls back.
-- This tool intentionally stresses hardware.
+Then grab a coffee.
