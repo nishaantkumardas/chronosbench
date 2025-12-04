@@ -3,7 +3,7 @@
 import threading, time
 from core import cpu_stress, io_stress
 try:
-    from core.metal_compute import run_metal_particle, get_last_metal_result, metal_availabl
+    from core.metal_compute import run_metal_particle, get_last_metal_result, metal_available
 except Exception:
     def run_metal_particle(d): time.sleep(d)
     def get_last_metal_result(): return {'note':'metal not available'}
