@@ -1,5 +1,5 @@
 """Metal/MPS compute: particle simulation + matrix multiply using PyTorch MPS when available.
-Falls back to CPU numpy if not available
+Falls back to CPU numpy if not available.
 """
 _last = {'note':'not run'}
 metal_available = False
