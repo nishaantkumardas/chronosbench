@@ -7,7 +7,7 @@ Supports macOS (Metal/MPS), Windows (CUDA/DirectML), Linux (OpenCL/Vulkan).
 
 import sys
 import time
-import threadin
+import threading
 import psutil
 import subprocess
 import re
