@@ -2,7 +2,7 @@
 Each worker is a process performing one workload for the requested duration.
 """
 import multiprocessing as mp, time, numpy as np, math
-from multiprocessing import Pipe
+from multiprocessing import Pip
 
 def _matrix_worker(duration, conn):
     end = time.time() + duration
