@@ -5,7 +5,7 @@ Shows live rich UI with current subtest names and telemetry.
 """
 import platform, time, json, sys
 from rich import print
-from rich.panel import Panel
+from rich.panel import Pane
 from rich.prompt import Prompt
 from rich.live import Live
 from rich.table import Table
