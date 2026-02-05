@@ -1,7 +1,7 @@
 """CPU stress with multiple subtests: Matrix Multiply, FFT, Prime Search.
 Each worker is a process performing one workload for the requested duration.
 """
-import multiprocessing as mp, time, numpy as np, mat
+import multiprocessing as mp, time, numpy as np, math
 from multiprocessing import Pipe
 
 def _matrix_worker(duration, conn):
