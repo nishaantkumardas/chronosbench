@@ -1,47 +1,95 @@
 #!/usr/bin/env python3
 """
-ChronosBench X - Telemetry system
-Collects CPU, GPU, memory, I/O and thermal metrics in the background.
-Supports macOS (Metal/MPS), Windows (CUDA/DirectML), Linux (OpenCL/Vulkan).
+ChronosBench - Telemetry
+Samples CPU, GPU, memory, and I/O in the background at a fixed interval.
+macOS reads GPU stats via powermetrics (requires sudo) with ioreg fallback.
 """
 
-import sys
-import time
-import threading
-import psutil
-import subprocess
 import re
-import platform
+import subprocess
+import sys
+import threading
+import time
+
+import psutil
 
 
 class TelemetryThread(threading.Thread):
-    def __init__(self, interval: float = 1.0):
+    def __init__(self, interval: float = 1.0) -> None:
         super().__init__(daemon=True)
         self.interval = interval
-        self.stop_event = threading.Event()
-        # last sampled values
-        self.cpu_percent = 0.0
-        self.cpu_temp = None
-        self.cpu_freq = None
-        self.cpu_power_w = None
-        self.gpu_percent = None
-        self.gpu_temp = None
-        self.gpu_power_w = None
-        self.mem_total_gb = psutil.virtual_memory().total / (1024**3)
-        self.mem_used_gb = 0.0
-        self.io_read_mb_s = 0.0
-        self.io_write_mb_s = 0.0
-        self.last_io = psutil.disk_io_counters()
-        self.last_time = time.time()
-        self.latest = {}
+        self._stop = threading.Event()
+        self._lock = threading.Lock()
 
-    # ------------------------------------------------------------------ #
-    # macOS GPU telemetry (Metal / M-series)
-    # ------------------------------------------------------------------ #
-    def _get_gpu_stats_mac(self):
-        gpu_usage = gpu_temp = gpu_power = None
+        self._snapshot: dict = {}
+        self._last_io = psutil.disk_io_counters()
+        self._last_time = time.perf_counter()
+        self._mem_total_gb = psutil.virtual_memory().total / 1024 ** 3
 
-        # try powermetrics first
+    def run(self) -> None:
+        while not self._stop.is_set():
+            self._sample()
+            self._stop.wait(self.interval)
+
+    def stop(self) -> None:
+        self._stop.set()
+
+    def latest_snapshot(self) -> dict:
+        with self._lock:
+            return dict(self._snapshot)
+
+    def _sample(self) -> None:
+        snap: dict = {
+            "cpu_percent":   psutil.cpu_percent(interval=None),
+            "cpu_freq":      self._cpu_freq(),
+            "cpu_temp":      None,
+            "cpu_power_w":   None,
+            "gpu_percent":   None,
+            "gpu_temp":      None,
+            "gpu_power_w":   None,
+            "mem_total_gb":  round(self._mem_total_gb, 2),
+            "mem_used_gb":   round(psutil.virtual_memory().used / 1024 ** 3, 2),
+            "io_read_mb_s":  0.0,
+            "io_write_mb_s": 0.0,
+        }
+
+        snap["io_read_mb_s"], snap["io_write_mb_s"] = self._io_rates()
+
+        if sys.platform == "darwin":
+            gpu_usage, gpu_temp, gpu_power = self._gpu_mac()
+            snap["gpu_percent"] = gpu_usage
+            snap["gpu_temp"]    = gpu_temp
+            snap["gpu_power_w"] = gpu_power
+
+        with self._lock:
+            self._snapshot = snap
+
+    def _cpu_freq(self) -> int | None:
+        try:
+            freq = psutil.cpu_freq()
+            return round(freq.current) if freq else None
+        except Exception:
+            return None
+
+    def _io_rates(self) -> tuple[float, float]:
+        try:
+            now_io   = psutil.disk_io_counters()
+            now_time = time.perf_counter()
+            dt = now_time - self._last_time
+
+            if dt > 0:
+                read_mb_s  = (now_io.read_bytes  - self._last_io.read_bytes)  / 1024 ** 2 / dt
+                write_mb_s = (now_io.write_bytes - self._last_io.write_bytes) / 1024 ** 2 / dt
+            else:
+                read_mb_s = write_mb_s = 0.0
+
+            self._last_io   = now_io
+            self._last_time = now_time
+            return round(read_mb_s, 2), round(write_mb_s, 2)
+        except Exception:
+            return 0.0, 0.0
+
+    def _gpu_mac(self) -> tuple[float | None, float | None, float | None]:
         try:
             out = subprocess.check_output(
                 ["sudo", "powermetrics", "--samplers", "smc", "--show-gpu", "--show-power"],
@@ -49,93 +97,23 @@ class TelemetryThread(threading.Thread):
                 timeout=3,
             ).decode("utf-8", errors="ignore")
 
-            usage_match = re.search(r"GPU Active residency:\s*([\d\.]+)%", out)
-            temp_match = re.search(r"GPU die temperature:\s*([\d\.]+)", out)
-            power_match = re.search(r"GPU Power:\s*([\d\.]+)\s*W", out)
+            usage = self._re_float(r"GPU Active residency:\s*([\d\.]+)%", out)
+            temp  = self._re_float(r"GPU die temperature:\s*([\d\.]+)",    out)
+            power = self._re_float(r"GPU Power:\s*([\d\.]+)\s*W",          out)
+            return usage, temp, power
 
-            if usage_match:
-                gpu_usage = float(usage_match.group(1))
-            if temp_match:
-                gpu_temp = float(temp_match.group(1))
-            if power_match:
-                gpu_power = float(power_match.group(1))
-
-        except Exception:
-            # fallback to ioreg if powermetrics fails
-            try:
-                ioreg = subprocess.check_output(["ioreg", "-l"], stderr=subprocess.DEVNULL).decode(
-                    "utf-8", errors="ignore"
-                )
-                power_match = re.search(r"GPU Power.*?(\d+\.\d+)", ioreg)
-                if power_match:
-                    gpu_power = float(power_match.group(1))
-            except Exception:
-                pass
-
-        return gpu_usage, gpu_temp, gpu_power
-
-    # ------------------------------------------------------------------ #
-    # main sampler
-    # ------------------------------------------------------------------ #
-    def run(self):
-        while not self.stop_event.is_set():
-            self.sample_once()
-            time.sleep(self.interval)
-
-    def sample_once(self):
-        # CPU %
-        self.cpu_percent = psutil.cpu_percent(interval=None)
-
-        # CPU frequency
-        try:
-            freq = psutil.cpu_freq()
-            if freq:
-                self.cpu_freq = round(freq.current)
-        except Exception:
-            self.cpu_freq = None
-
-        # Memory
-        vm = psutil.virtual_memory()
-        self.mem_used_gb = vm.used / (1024**3)
-
-        # Disk I/O MB/s
-        try:
-            now_io = psutil.disk_io_counters()
-            now_time = time.time()
-            delta_t = now_time - self.last_time
-            if delta_t > 0:
-                self.io_read_mb_s = (now_io.read_bytes - self.last_io.read_bytes) / (1024**2) / delta_t
-                self.io_write_mb_s = (now_io.write_bytes - self.last_io.write_bytes) / (1024**2) / delta_t
-            self.last_io, self.last_time = now_io, now_time
         except Exception:
             pass
 
-        # macOS GPU telemetry
-        if sys.platform == "darwin":
-            g_usage, g_temp, g_power = self._get_gpu_stats_mac()
-            self.gpu_percent = g_usage
-            self.gpu_temp = g_temp
-            self.gpu_power_w = g_power
+        # ioreg fallback — power only
+        try:
+            out   = subprocess.check_output(["ioreg", "-l"], stderr=subprocess.DEVNULL).decode("utf-8", errors="ignore")
+            power = self._re_float(r"GPU Power.*?([\d\.]+)", out)
+            return None, None, power
+        except Exception:
+            return None, None, None
 
-        # package snapshot
-        self.latest = {
-            "cpu_percent": self.cpu_percent,
-            "cpu_temp": self.cpu_temp,
-            "cpu_freq": self.cpu_freq,
-            "cpu_power_w": self.cpu_power_w,
-            "gpu_percent": self.gpu_percent,
-            "gpu_temp": self.gpu_temp,
-            "gpu_power_w": self.gpu_power_w,
-            "mem_total_gb": self.mem_total_gb,
-            "mem_used_gb": self.mem_used_gb,
-            "io_read_mb_s": self.io_read_mb_s,
-            "io_write_mb_s": self.io_write_mb_s,
-        }
-
-    # ------------------------------------------------------------------ #
-    def latest_snapshot(self):
-        """Return most recent metrics dict."""
-        return self.latest
-
-    def stop(self):
-        self.stop_event.set()
+    @staticmethod
+    def _re_float(pattern: str, text: str) -> float | None:
+        m = re.search(pattern, text)
+        return float(m.group(1)) if m else None
