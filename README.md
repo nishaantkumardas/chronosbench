@@ -1,4 +1,4 @@
-# ChronosBench X
+# ChronosBench 
 
 Stresses your CPU and Metal GPU from the terminal. Live utilization bars while it runs. JSON report when it's done.
 
