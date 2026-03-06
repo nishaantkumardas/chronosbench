@@ -79,14 +79,14 @@ def _run_gpu(duration: float) -> None:
     global _last
 
     # Allocate buffers once outside the loop.
-    mat_a = torch.randn((2048, 512), device=device)
-    mat_b = torch.randn((512, 2048), device=device)
-    particles = torch.randn((1_000_000, 3), device=device)
+    mat_a = torch.randn((4096, 2048), device=device)
+    mat_b = torch.randn((2048, 4096), device=device)
+    particles = torch.randn((4_000_000, 3), device=device)
     velocity = torch.randn_like(particles)
     noise = torch.empty_like(velocity)
 
     passes = 0
-    particle_steps_per_pass = 4
+    particle_steps_per_pass = 8
     current_test = "init"
 
     try:
@@ -96,8 +96,6 @@ def _run_gpu(duration: float) -> None:
             # --- matrix multiply ---
             current_test = "Matrix Multiply"
             c = torch.matmul(mat_a, mat_b)
-            # Force execution — MPS/CUDA are lazy without a readback.
-            _ = c[0, 0].item()
 
             # --- particle sim ---
             current_test = "Particle Simulation"
@@ -107,6 +105,11 @@ def _run_gpu(duration: float) -> None:
                 particles.add_(velocity, alpha=0.001)
 
             passes += 1
+
+            # Sync every 10 passes — keeps the command queue full between flushes
+            # rather than stalling the GPU on every single matmul readback.
+            if passes % 10 == 0:
+                _sync()
 
         _sync()
         elapsed = time.perf_counter() - start
