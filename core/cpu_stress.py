@@ -26,8 +26,8 @@ What makes this different from every other benchmark:
 """
 
 import math
-import mmap
 import multiprocessing as mp
+import multiprocessing.shared_memory as shm
 import os
 import struct
 import time
@@ -37,26 +37,23 @@ import numpy as np
 
 
 # Shared memory arena — forces cross-core cache coherency traffic
+# Uses shared_memory (picklable) instead of mmap so it survives spawn on macOS.
 
 ARENA_BYTES = 4096  # one page; every worker hammers it
 
 
-def _make_arena() -> mmap.mmap:
-    return mmap.mmap(-1, ARENA_BYTES)
-
-
-def _arena_xor(arena: mmap.mmap, slot: int, value: int) -> None:
-    """XOR a 4-byte slot in the shared arena — intentionally causes coherency traffic."""
+def _arena_xor(name: str, slot: int, value: int) -> None:
+    """XOR a 4-byte slot in the named shared arena."""
+    mem    = shm.SharedMemory(name=name)
     offset = (slot % (ARENA_BYTES // 4)) * 4
-    arena.seek(offset)
-    current = struct.unpack("I", arena.read(4))[0]
-    arena.seek(offset)
-    arena.write(struct.pack("I", (current ^ value) & 0xFFFFFFFF))
+    current = struct.unpack_from("I", mem.buf, offset)[0]
+    struct.pack_into("I", mem.buf, offset, (current ^ value) & 0xFFFFFFFF)
+    mem.close()
 
 
 # Worker 1 — Chaos Matrix (BLAS + arena writes)
 
-def _chaos_matrix_worker(duration: float, conn: Connection, arena: mmap.mmap) -> None:
+def _chaos_matrix_worker(duration: float, conn: Connection, arena_name: str) -> None:
     size = 1024
     a = np.random.rand(size, size).astype("float32")
     b = np.random.rand(size, size).astype("float32")
@@ -66,7 +63,7 @@ def _chaos_matrix_worker(duration: float, conn: Connection, arena: mmap.mmap) ->
     try:
         while time.perf_counter() < end:
             c = np.dot(a, b)
-            _arena_xor(arena, ops % 64, int(c[0, 0] * 1e6) & 0xFFFFFFFF)
+            _arena_xor(arena_name, ops % 64, int(c[0, 0] * 1e6) & 0xFFFFFFFF)
             # Rotate inputs so the CPU cannot cache the answer.
             a = c[:size, :size]
             b = np.roll(b, 1, axis=0)
@@ -81,7 +78,7 @@ def _chaos_matrix_worker(duration: float, conn: Connection, arena: mmap.mmap) ->
 
 # Worker 2 — Entropy Mill (RNG + AES-NI / hardware entropy path)
 
-def _entropy_mill_worker(duration: float, conn: Connection, arena: mmap.mmap) -> None:
+def _entropy_mill_worker(duration: float, conn: Connection, arena_name: str) -> None:
     ops = 0
     chunk = 65536
     end = time.perf_counter() + duration
@@ -91,7 +88,7 @@ def _entropy_mill_worker(duration: float, conn: Connection, arena: mmap.mmap) ->
             raw = os.urandom(chunk)
             arr = np.frombuffer(raw, dtype=np.uint8).astype(np.uint32)
             checksum = int(np.bitwise_xor.reduce(arr))
-            _arena_xor(arena, (ops + 32) % 64, checksum)
+            _arena_xor(arena_name, (ops + 32) % 64, checksum)
             ops += 1
     except Exception as exc:
         conn.send({"error": str(exc), "type": "entropy_mill", "ops": ops})
@@ -103,7 +100,7 @@ def _entropy_mill_worker(duration: float, conn: Connection, arena: mmap.mmap) ->
 
 # Worker 3 — Mandelbrot Turbine (branch-heavy, data-dependent)
 
-def _mandelbrot_worker(duration: float, conn: Connection, arena: mmap.mmap) -> None:
+def _mandelbrot_worker(duration: float, conn: Connection, arena_name: str) -> None:
     ops = 0
     width, height = 512, 512
     max_iter = 256
@@ -127,7 +124,7 @@ def _mandelbrot_worker(duration: float, conn: Connection, arena: mmap.mmap) -> N
                 Z[mask] = Z[mask] ** 2 + C[mask]
                 M[mask] += 1
 
-            _arena_xor(arena, ops % 64, int(M.sum()) & 0xFFFFFFFF)
+            _arena_xor(arena_name, ops % 64, int(M.sum()) & 0xFFFFFFFF)
             ops += 1
     except Exception as exc:
         conn.send({"error": str(exc), "type": "mandelbrot", "ops": ops})
@@ -155,7 +152,7 @@ def _fold_tree(node) -> np.ndarray:
     return left + right[: left.shape[0], : left.shape[1]]
 
 
-def _tensor_fold_worker(duration: float, conn: Connection, arena: mmap.mmap) -> None:
+def _tensor_fold_worker(duration: float, conn: Connection, arena_name: str) -> None:
     ops = 0
     end = time.perf_counter() + duration
 
@@ -163,7 +160,7 @@ def _tensor_fold_worker(duration: float, conn: Connection, arena: mmap.mmap) -> 
         while time.perf_counter() < end:
             tree = _build_tree(depth=3, size=64)
             result = _fold_tree(tree)
-            _arena_xor(arena, (ops + 16) % 64, int(abs(result[0, 0]) * 1e6) & 0xFFFFFFFF)
+            _arena_xor(arena_name, (ops + 16) % 64, int(abs(result[0, 0]) * 1e6) & 0xFFFFFFFF)
             ops += 1
     except Exception as exc:
         conn.send({"error": str(exc), "type": "tensor_fold", "ops": ops})
@@ -198,7 +195,7 @@ def _segmented_sieve(low: int, high: int) -> int:
     return sum(segment)
 
 
-def _sieve_race_worker(duration: float, conn: Connection, arena: mmap.mmap) -> None:
+def _sieve_race_worker(duration: float, conn: Connection, arena_name: str) -> None:
     ops = 0
     found = 0
     base = (os.getpid() % 1000) * 10 ** 6 + 10 ** 7
@@ -210,7 +207,7 @@ def _sieve_race_worker(duration: float, conn: Connection, arena: mmap.mmap) -> N
         while time.perf_counter() < end:
             count = _segmented_sieve(low, low + window)
             found += count
-            _arena_xor(arena, ops % 64, count & 0xFFFFFFFF)
+            _arena_xor(arena_name, ops % 64, count & 0xFFFFFFFF)
             low += window
             ops += 1
     except Exception as exc:
@@ -223,7 +220,7 @@ def _sieve_race_worker(duration: float, conn: Connection, arena: mmap.mmap) -> N
 
 # Worker 6 — FFT (feeds into arena)
 
-def _fft_worker(duration: float, conn: Connection, arena: mmap.mmap) -> None:
+def _fft_worker(duration: float, conn: Connection, arena_name: str) -> None:
     buf = np.random.rand(1 << 20).astype("complex64")
     ops = 0
     end = time.perf_counter() + duration
@@ -231,7 +228,7 @@ def _fft_worker(duration: float, conn: Connection, arena: mmap.mmap) -> None:
     try:
         while time.perf_counter() < end:
             result = np.fft.fft(buf)
-            _arena_xor(arena, (ops + 48) % 64, int(abs(result[0]) * 1e6) & 0xFFFFFFFF)
+            _arena_xor(arena_name, (ops + 48) % 64, int(abs(result[0]) * 1e6) & 0xFFFFFFFF)
             ops += 1
     except Exception as exc:
         conn.send({"error": str(exc), "type": "fft", "ops": ops})
@@ -261,14 +258,14 @@ class CPUStress:
     def __init__(self) -> None:
         self._processes: list[mp.Process] = []
         self._conns: list[Connection] = []
-        self._arena: mmap.mmap | None = None
+        self._arena: shm.SharedMemory | None = None
         self._started_at: float = 0.0
         self._duration: float = 0.0
 
     def start(self, duration: float = 60) -> None:
         self._duration = duration
         self._started_at = time.perf_counter()
-        self._arena = _make_arena()
+        self._arena = shm.SharedMemory(create=True, size=ARENA_BYTES)
         cpu_count = mp.cpu_count()
 
         for i in range(cpu_count):
@@ -276,7 +273,7 @@ class CPUStress:
             parent, child = mp.Pipe(duplex=False)
             p = mp.Process(
                 target=worker_fn,
-                args=(duration, child, self._arena),
+                args=(duration, child, self._arena.name),
                 daemon=True,
             )
             p.start()
@@ -292,6 +289,7 @@ class CPUStress:
                 p.join(timeout=1)
         if self._arena:
             self._arena.close()
+            self._arena.unlink()
 
     def result(self) -> dict:
         breakdown: dict[str, int] = {}
