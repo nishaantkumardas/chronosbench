@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""ChronosBench X — CLI entry point."""
+"""ChronosBench — CLI entry point."""
 
 import platform
 import time
