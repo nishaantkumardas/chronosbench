@@ -1,42 +1,70 @@
-"""Mixed load: concurrently stress CPU + GPU (MPS/Metal if available) + I/O.
+"""Mixed load: CPU + GPU (MPS/Metal) + I/O running simultaneously.
+
+The point isn't to measure each subsystem in isolation — it's to see how
+they degrade each other under real thermal and memory-bandwidth pressure.
+CPU and I/O fight over the memory bus. GPU competes for power headroom.
+That interaction is what this phase captures.
 """
-import threading, time
+
+import threading
+import time
+
 from core import cpu_stress, io_stress
+
 try:
-    from core.metal_compute import run_metal_particle, get_last_metal_result, metal_available
+    from core.metal_compute import (
+        get_last_metal_result,
+        gpu_available,
+        run_metal_particle,
+    )
 except Exception:
-    def run_metal_particle(d): time.sleep(d)
-    def get_last_metal_result(): return {'note':'metal not available'}
-    metal_available = False
+    gpu_available = False
+
+    def run_metal_particle(d: float) -> None:
+        time.sleep(d)
+
+    def get_last_metal_result() -> dict:
+        return {"note": "gpu not available"}
+
 
 class MixedLoad:
-    def __init__(self):
+    def __init__(self) -> None:
         self._cpu = cpu_stress.CPUStress()
-        self._io = io_stress.IOStress()
-        self._gpu_thread = None
+        self._io  = io_stress.IOStress()
+        self._gpu_thread: threading.Thread | None = None
+        self._started_at: float = 0.0
+        self._duration: float = 0.0
 
-    def start(self, duration=60):
+    def start(self, duration: float = 60) -> None:
+        self._duration = duration
+        self._started_at = time.perf_counter()
+
         self._cpu.start(duration=duration)
         self._io.start(duration=duration)
-        if metal_available:
-            self._gpu_thread = threading.Thread(target=run_metal_particle, args=(duration,), daemon=True)
+
+        if gpu_available:
+            self._gpu_thread = threading.Thread(
+                target=run_metal_particle,
+                args=(duration,),
+                daemon=True,
+            )
             self._gpu_thread.start()
 
-    def stop(self):
+    def stop(self) -> None:
         self._io.stop()
         self._cpu.stop()
         if self._gpu_thread and self._gpu_thread.is_alive():
-            self._gpu_thread.join(timeout=1)
+            self._gpu_thread.join(timeout=3)
 
-    def result(self):
-        res = {'cpu': self._cpu.result(), 'io': self._io.result()}
-        if metal_available:
-            res['gpu'] = get_last_metal_result()
-        else:
-            res['gpu'] = {'note':'metal not available'}
-        return res
+    def result(self) -> dict:
+        return {
+            "cpu": self._cpu.result(),
+            "io":  self._io.result(),
+            "gpu": get_last_metal_result() if gpu_available else {"note": "gpu not available"},
+        }
 
-    def current_subtest(self):
-        if metal_available:
-            return get_last_metal_result().get('current_test','Metal Particle+Matrix')
-        return 'Mixed: CPU+I/O'
+    @property
+    def current_subtest(self) -> str:
+        if gpu_available:
+            return get_last_metal_result().get("current_test", "Mixed: CPU+GPU+I/O")
+        return "Mixed: CPU+I/O"
