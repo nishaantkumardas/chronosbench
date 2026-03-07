@@ -1,4 +1,5 @@
 # ChronosBench 
+![WhatsApp Image 2026-03-07 at 11 22 53](https://github.com/user-attachments/assets/f6aa1266-f020-47db-a70b-573b9ebdcdc6)
 
 Stresses your CPU and Metal GPU from the terminal. Live utilization bars while it runs. JSON report when it's done.
 
