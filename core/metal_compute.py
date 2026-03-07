@@ -1,8 +1,8 @@
-"""Metal/MPS compute: particle simulation + matrix multiply.
+'''Metal/MPS compute: particle simulation + matrix multiply.
 
 Uses PyTorch MPS on macOS, CUDA where available, falls back to NumPy.
 Note: GPU access is via PyTorch's MPS/CUDA backends, not raw Metal shaders.
-"""
+'''
 
 import time
 import numpy as np
